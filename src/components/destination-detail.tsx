@@ -1,22 +1,9 @@
-import {
-  CalendarDays,
-  Check,
-  Info,
-  MapPin,
-  Plus,
-  Star,
-  Tag,
-} from "lucide-react";
+import { CalendarDays, Check, MapPin, Star, Tag } from "lucide-react";
 import Link from "next/link";
+import { BookingSummary } from "./booking-summary";
+import { DeleteConfirmationDialog } from "./Delete";
 import { UpdateTravelPackageDialog } from "./Dialog";
 import type { Destination } from "./destination-card";
-import { DeleteConfirmationDialog } from "./Delete";
-
-const bookingGuarantees = [
-  "Best availability for your dates",
-  "Free cancellation 24 hours",
-  "24/7 customer support",
-];
 
 export function DestinationDetail({
   destination,
@@ -40,8 +27,9 @@ export function DestinationDetail({
             </Link>
             <div className="flex gap-2">
               <UpdateTravelPackageDialog destination={destination} />
-              <DeleteConfirmationDialog  destination={destination}></
-              DeleteConfirmationDialog>
+              <DeleteConfirmationDialog
+                destination={destination}
+              ></DeleteConfirmationDialog>
             </div>
           </div>
           <div className="px-4">
@@ -100,43 +88,7 @@ export function DestinationDetail({
                 ))}
               </ul>
             </div>
-            <aside className="mt-8 border-t border-dashed border-cyan-200 pt-6 lg:mt-5 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-6">
-              <p className="flex items-center gap-1.5 text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
-                <Info className="size-3" />
-                Starting From
-              </p>
-              <div className="mt-2 flex items-baseline gap-2">
-                <p className="text-4xl font-semibold text-cyan-600">
-                  ${destination.price}
-                </p>
-                <span className="text-xs text-muted-foreground">/PP</span>
-              </div>
-              <p className="mt-6 text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
-                Departure
-              </p>
-              <div className="mt-1.5 flex items-center gap-2 border border-input px-2.5 py-2 text-sm">
-                <CalendarDays className="size-4 text-muted-foreground" />
-                {destination.departureCode}
-              </div>
-              <button
-                type="button"
-                className="mt-4 flex w-full items-center justify-between bg-cyan-600 px-4 py-2.5 font-medium text-white transition-colors hover:bg-cyan-700"
-              >
-                Book Now
-                <Plus className="size-4" />
-              </button>
-              <ul className="mt-4 space-y-2">
-                {bookingGuarantees.map((guarantee) => (
-                  <li
-                    key={guarantee}
-                    className="flex items-start gap-2 text-xs text-muted-foreground"
-                  >
-                    <Check className="mt-0.5 size-3.5 shrink-0 text-cyan-600" />
-                    {guarantee}
-                  </li>
-                ))}
-              </ul>
-            </aside>
+            <BookingSummary destination={destination} />
           </div>
         </div>
       </div>
