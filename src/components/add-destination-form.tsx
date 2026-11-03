@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { refreshDestinations } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -109,6 +110,7 @@ export function AddDestinationForm() {
         throw new Error(`Request failed with status ${res.status}`);
       }
       await res.json();
+      await refreshDestinations();
       setSuccess(true);
       setSelections(initialSelections);
       form.reset();
