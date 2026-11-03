@@ -1,11 +1,8 @@
 import { cn } from "cn";
 import { ArrowRight } from "lucide-react";
-import { Playfair_Display } from "next/font/google";
 import Image from "next/image";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
-
-const playfair = Playfair_Display({ subsets: ["latin"] });
 
 const searchFields = [
   { label: "Location", placeholder: "Address, City or Zip" },
@@ -29,9 +26,7 @@ export function Banner() {
         <div className="absolute inset-0 bg-black/30" />
       </div>
       <div className="relative mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center px-4 text-center text-white">
-        <h1
-          className={`${playfair.className} text-5xl leading-tight font-medium sm:text-6xl lg:text-7xl`}
-        >
+        <h1 className="text-5xl leading-tight font-medium sm:text-6xl lg:text-7xl">
           Discover Your
           <br />
           Next Adventure
