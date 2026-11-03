@@ -1,3 +1,27 @@
+# Wanderlust
+
+Next.js 16 App Router app (npm — package-lock.json present; don't use other package managers). Currently a create-next-app skeleton: entrypoint `src/app/layout.tsx` + `src/app/page.tsx`.
+
+## Commands
+
+- `npm run dev` — dev server (Turbopack, default bundler in Next 16)
+- `npm run build` — verify build; also runs TypeScript checking (no separate `typecheck` script; there is no test framework)
+- `npm run lint` — Biome (not ESLint/Prettier): lint + format check + import sorting in one pass
+- `npm run format` — format with Biome (does not fix lint errors; `npx biome check --write` does)
+- No CI, pre-commit hooks, or test suite exist.
+
+## Toolchain quirks
+
+- `next.config.ts` enables `cacheComponents: true` — dynamic APIs (`params`, `searchParams`, `cookies`, `headers`) are Promises and must be `await`ed; uncached data must work under the Cache Components model (Suspense boundaries).
+- `reactCompiler: true` — don't hand-write `useMemo`/`useCallback` for the compiler; follow the Rules of React.
+- Tailwind v4 keyed via a custom Turbopack rule in `next.config.ts` (`@tailwindcss/turbopack` loader), not PostCSS/globals config. No `tailwind.config` — theme tokens live as CSS variables in `src/app/globals.css`.
+- Path alias `@/*` → `src/*`.
+
+## Components
+
+- shadcn/ui with the `base-nova` style (see `components.json`): primitives come from `@base-ui/react`, **not** Radix. Add components with `npx shadcn add <name>`; they land in `src/components/ui` and import `cn` from the `"cn"` package (not `@/lib/utils`).
+- `@/hooks` alias is configured but the directory doesn't exist yet.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 ## This is NOT the Next.js you know
