@@ -11,6 +11,7 @@ import {
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSession } from "@/lib/auth-client";
+import { getTokenFromClient } from "@/lib/getTokenFromClient";
 import type { Destination } from "./destination-card";
 
 type Booking = {
@@ -61,7 +62,6 @@ export function MyBookings({ destinations }: { destinations: Destination[] }) {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
-
   useEffect(() => {
     if (isPending) return;
     if (!session?.user) {
@@ -71,7 +71,14 @@ export function MyBookings({ destinations }: { destinations: Destination[] }) {
     let isActive = true;
     setLoading(true);
     setFailed(false);
-    fetch("http://localhost:5000/bookings")
+    getTokenFromClient()
+      .then((token) =>
+        fetch("http://localhost:5000/bookings", {
+          headers: {
+            authorization: `Bearer ${token}`,
+          },
+        }),
+      )
       .then((res) => {
         if (!res.ok) {
           throw new Error(`Request failed with status ${res.status}`);
@@ -106,9 +113,11 @@ export function MyBookings({ destinations }: { destinations: Destination[] }) {
 
   async function handleCancel(booking: Booking) {
     setCancellingId(booking._id);
+    const token = getTokenFromClient()
     try {
       await fetch(`http://localhost:5000/bookings/${booking._id}`, {
         method: "DELETE",
+        
       });
       setBookings((current) =>
         current.filter((item) => item._id !== booking._id),

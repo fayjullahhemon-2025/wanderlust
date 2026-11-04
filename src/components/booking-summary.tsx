@@ -4,6 +4,7 @@ import { Check, Info } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useSession } from "@/lib/auth-client";
+import { getTokenFromServer } from "@/lib/getTokenFromServer";
 import type { Destination } from "./destination-card";
 
 const bookingGuarantees = [
@@ -30,12 +31,13 @@ export function BookingSummary({ destination }: { destination: Destination }) {
 
     setSubmitting(true);
     setError(null);
-
+    const token = await getTokenFromServer();
     try {
       const res = await fetch("http://localhost:5000/bookings", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           name: session?.user?.name,

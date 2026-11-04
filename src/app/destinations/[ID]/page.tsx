@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { DestinationDetail } from "@/components/destination-detail";
-import { getDestination, getDestinations } from "@/lib/destination-data";
+import { getDestinations } from "@/lib/destination-data";
+import { getTokenFromServer } from "@/lib/getTokenFromServer";
 
 export async function generateStaticParams() {
   const destinations = await getDestinations();
@@ -10,10 +11,17 @@ export async function generateStaticParams() {
 
 async function Detail({ params }: { params: Promise<{ ID: string }> }) {
   const { ID } = await params;
-  const destination = await getDestination(ID);
+  const token = await getTokenFromServer();
+  const res = await fetch(`http://localhost:5000/destinations/${ID}`, {
+    headers: {
+      authorization: `Bearer ${token}`,
+    },
+  });
+  if (!res.ok) notFound();
+  const data = await res.json();
 
-  if (!destination) notFound();
-  return <DestinationDetail destination={destination} />;
+  if (!data) notFound();
+  return <DestinationDetail data={data} />;
 }
 
 const DestinationDetailPage = ({

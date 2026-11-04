@@ -2,8 +2,8 @@
 
 Next.js 16 App Router travel app (npm — package-lock.json present; don't use other package managers). Two halves to know about:
 
-- **This repo**: the Next.js UI. Home (`src/app/page.tsx`) composes section components; `/destinations` + `/destinations/[ID]` (list/filter, detail with update/delete dialog), `/add-destination` admin form, auth via `(auth)/sign-up` and `(auth)/sign-in`.
-- **Sibling backend**: an Express + Mongo API lives OUTSIDE this repo at `../wanderlust-server` (port 5000). Destinations data comes from it. `README.md` is stale create-next-app boilerplate — ignore it.
+- **This repo**: the Next.js UI. Home (`src/app/page.tsx`) composes section components; `/destinations` + `/destinations/[ID]` (list/filter, detail with update/delete dialog + booking form), `/add-destination` admin form, `/my-bookings` (list/cancel bookings), auth via `(auth)/sign-up` and `(auth)/sign-in`.
+- **Sibling backend**: an Express + Mongo API lives OUTSIDE this repo at `../wanderlust-server` (port 5000, its own `.env` with `DB_USER`/`DB_PASS` for a Mongo Atlas cluster). Destinations and bookings data come from it. `README.md` is stale create-next-app boilerplate — ignore it.
 
 ## Commands
 
@@ -15,25 +15,38 @@ Next.js 16 App Router travel app (npm — package-lock.json present; don't use o
 
 ## Data layer — Cache Components model
 
-- `next.config.ts`: `cacheComponents: true` + `reactCompiler: true`. Dynamic APIs (`params`, etc.) are Promises — `await` them **inside** a Suspense boundary or inside `"use cache"` functions; an uncached `fetch` or `params` read directly in a page fails the build.
-- All destination reads go through `src/lib/destination-data.ts` (file-level `"use cache"`, tagged `cacheTag("destinations")`). `/destinations/[ID]` prerenders every destination via `generateStaticParams()`; unknown IDs fall back to on-demand rendering behind Suspense.
-- After any mutation (add/update/delete), call the server action `refreshDestinations()` (`src/app/actions.ts`, uses `updateTag`) or the UI stays stale for 15 min. This is already wired into the add form, update dialog, and delete flow.
+- `next.config.ts`: `cacheComponents: true` + `partialPrefetching: true` + `reactCompiler: true`. Dynamic APIs (`params`, etc.) are Promises — `await` them **inside** a Suspense boundary or inside `"use cache"` functions; an uncached `fetch` or `params` read directly in a page fails the build.
+- All cached destination reads go through `src/lib/destination-data.ts` (file-level `"use cache"`, tagged `cacheTag("destinations")`). `/destinations/[ID]` prerenders every destination via `generateStaticParams()`; unknown IDs fall back to on-demand rendering behind Suspense.
+- After any destinations mutation (add/update/delete), call the server action `refreshDestinations()` (`src/app/actions.ts`, uses `updateTag`) or the UI stays stale for 15 min. This is already wired into the add form, update dialog, and delete flow.
 - Avoid adding Suspense boundaries whose fallback→content swap resolves during navigation (the streaming replacement during navigations logs a React "children should not have changed" console error — prefer `use cache` + full prerender).
 - `reactCompiler: true` — don't hand-write `useMemo`/`useCallback`; follow the Rules of React.
 
+## Middleware (Next 16 renamed it — `src/proxy.tsx`)
+
+- The gate file is `src/proxy.tsx` exporting `proxy` (NOT `middleware.ts`). It redirects unauthenticated users to `/sign-in` for matcher `/my-bookings`, `/destinations/:path`, `/profile`.
+
 ## Backend API quirks (`../wanderlust-server/index.js`)
 
-- Routes: `GET /destinations`, `GET /destinations/:id`, `PATCH /destinations/:id`, `DELETE /destination/:id` (**singular** — forgetting this 404s deletions), `POST /add-destination` (inserts the payload verbatim).
+**Destinations:**
+- Routes: `GET /destinations` (open), `GET /destinations/:id` (**requires a Bearer JWT**), `PATCH /destinations/:id`, `DELETE /destination/:id` (**singular** — forgetting this 404s deletions), `POST /add-destination` (inserts the payload verbatim).
 - Fields: `destinationName, country, categories, price (number), duration, departureCode, imageUrl, description`. No rating; ratings only render when present.
-- `PATCH` does `$set` on **every** field — omitting a field wipes it in Mongo. Send the complete payload.
-- The PATCH handler never sends a response; delete by non-hex `_id` throws (`new ObjectId`). Frontend does the PATCH fire-and-forget — don't `await` its body.
+- `PATCH` does `$set` on **every** field with `upsert: true` — omitting a field wipes it in Mongo. Send the complete payload. The PATCH handler never sends a response, so the frontend PATCHes fire-and-forget — don't `await` its body. Delete by non-hex `_id` throws (`new ObjectId`).
+- The detail page (`Detail` in `src/app/destinations/[ID]/page.tsx`) fetches `/destinations/:id` server-side with `getTokenFromServer()` and calls `notFound()` on a non-OK response. New auth-protected fetches must mirror this (send a Bearer token from the token helpers, check `res.ok`).
+
+**Bookings:**
+- `POST /bookings` and `GET /bookings` require the Bearer token; `DELETE /bookings/:id` and `GET /bookings/:email` do **not**. `GET /bookings` returns ALL bookings — the frontend filters by the session user's email client-side.
+- Booking payload fields: `name, email, destinationName, country, category, price, duration, description, departureDate` (sent from `booking-summary.tsx`).
+
+**Token verification:**
+- The backend `verifyToken` middleware validates JWTs via a JWKS URL **hardcoded** to `http://localhost:3000/api/auth/jwks` — token-guarded routes only work when the Next dev server runs on port 3000.
 
 ## Auth (better-auth)
 
-- Server: `src/app/api/auth/[...all]/route.ts` + `src/lib/auth.ts` (Mongo adapter, writes `user`/`session`/`account` collections into the same `wanderlustDB`). Needs `MONGODB_URL` + `BETTER_AUTH_SECRET`/`BETTER_AUTH_URL` from `.env` (no spaces/backticks — dotenv doesn't parse them).
-- Client: `src/lib/auth-client.ts` exports `signIn`, `signOut`, `signUp`, `useSession` from the single configured `createAuthClient()`. Email/password only: `signUp.email({ name, email, password })`, `signIn.email({ email, password, rememberMe })`.
+- Server: `src/app/api/auth/[...all]/route.ts` + `src/lib/auth.ts` (Mongo adapter + **`jwt()` plugin**, which serves the JWKS endpoint the backend validates against; session uses a 7-day JWT cookieCache). Writes `user`/`session`/`account` collections into the same `wanderlustDB`. Needs `MONGODB_URL` + `BETTER_AUTH_SECRET`/`BETTER_AUTH_URL` from `.env` (no spaces/backticks — dotenv doesn't parse them).
+- Client: `src/lib/auth-client.ts` exports `signIn`, `signOut`, `signUp`, `useSession`, `authClient` from the single configured `createAuthClient()`. Email/password only: `signUp.email({ name, email, password })`, `signIn.email({ email, password, rememberMe })`.
+- Get a JWT for backend calls with `getTokenFromClient()` / `getTokenFromServer()` (`src/lib/get-token-*`-style helpers; client uses `authClient.token()`, server uses `auth.api.getToken`). Send as `authorization: Bearer <token>`.
 - Error-code mapping in the forms: signup duplicate is `USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL`, bad credentials is `INVALID_EMAIL_OR_PASSWORD` (codes differ from older better-auth versions — verify against the live response before renaming).
-- Signup/sign-in live in `src/components/sign-in-form.tsx` / `sign-up-form.tsx` (client components; pass exists in navbar `UserMenu`). Success redirects to `/destinations`.
+- Signup/sign-in live in `src/components/sign-in-form.tsx` / `sign-up-form.tsx` (client components; session exists in navbar `UserMenu`). Success redirects to `/destinations`.
 
 ## Conventions & gotchas
 
@@ -43,7 +56,7 @@ Next.js 16 App Router travel app (npm — package-lock.json present; don't use o
 - Theme tokens are CSS variables in `src/app/globals.css`; Tailwind v4 via the custom Turbopack rule in `next.config.ts`, no `tailwind.config`.
 - Path alias `@/*` → `src/*`. Font is Josefin Sans via `next/font` in `src/app/layout.tsx`.
 - Brand assets in `public/assets/` are spelled "Wanderlast" (extra "l").
-- Navbar still links to `/my-bookings`, `/admin`, `/profile` — routes that don't exist yet (planned, not broken). Auth pages already route: `/sign-in`, `/sign-up`.
+- Navbar and footer still link to `/admin` and `/profile` — routes that don't exist yet (planned, not broken). `/my-bookings` now exists. Auth pages already route: `/sign-in`, `/sign-up`.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

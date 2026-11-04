@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { getTokenFromClient } from "@/lib/getTokenFromClient";
 
 const countries = [
   "Indonesia",
@@ -97,12 +98,13 @@ export function AddDestinationForm() {
     };
     console.log("Add travel package:", payload);
     setError(null);
-
+    const token = await getTokenFromClient()
     try {
       const res = await fetch("http://localhost:5000/add-destination", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          authorization: `Bearer ${token}`
         },
         body: JSON.stringify(payload),
       });
