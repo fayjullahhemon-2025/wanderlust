@@ -68,12 +68,17 @@ export function MyBookings({ destinations }: { destinations: Destination[] }) {
       setLoading(false);
       return;
     }
+    const email = session.user.email;
+    if (!email) {
+      setLoading(false);
+      return;
+    }
     let isActive = true;
     setLoading(true);
     setFailed(false);
     getTokenFromClient()
       .then((token) =>
-        fetch("http://localhost:5000/bookings", {
+        fetch(`http://localhost:5000/bookings/${encodeURIComponent(email)}`, {
           headers: {
             authorization: `Bearer ${token}`,
           },
@@ -85,15 +90,9 @@ export function MyBookings({ destinations }: { destinations: Destination[] }) {
         }
         return res.json() as Promise<Booking[]>;
       })
-      .then((allBookings) => {
+      .then((myBookings) => {
         if (isActive) {
-          setBookings(
-            allBookings.filter(
-              (booking) =>
-                booking.email?.toLowerCase() ===
-                session.user?.email?.toLowerCase(),
-            ),
-          );
+          setBookings(myBookings);
         }
       })
       .catch(() => {
@@ -113,11 +112,9 @@ export function MyBookings({ destinations }: { destinations: Destination[] }) {
 
   async function handleCancel(booking: Booking) {
     setCancellingId(booking._id);
-    const token = getTokenFromClient()
     try {
       await fetch(`http://localhost:5000/bookings/${booking._id}`, {
         method: "DELETE",
-        
       });
       setBookings((current) =>
         current.filter((item) => item._id !== booking._id),
